@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-import React from 'react';
-import {render} from 'ink';
+// import React from 'react';
+// import {render} from 'ink';
 import meow from 'meow';
-import App from './app.js';
+// import App from './app.js';
 import chalk from 'chalk';
 import {decode} from './import.js';
 import {add, remove, has, find, importGA} from './storage.js';
-import {verify} from './2fa.js';
+import {verify, generate} from './2fa.js';
 const cli = meow(
 	`
 	Usage
@@ -17,6 +17,7 @@ const cli = meow(
 	  remove - Remove a secret
 	  verify - verify a token
 	  import - Import a secret from url
+	  get - Get token from name
 
 	Options
 		--name <The name of the secret>
@@ -30,6 +31,7 @@ const cli = meow(
 	  $ 2fa remove --name github
 	  $ 2fa verify --name github --token 643223
 	  $ 2fa import --url otpauth://totp/...
+	  $ 2fa get --name github
 `,
 	{
 		importMeta: import.meta,
@@ -54,50 +56,65 @@ const setError = (msg: string) => {
 };
 (async function () {
 	const {name, secret, url, token} = cli.flags;
+	if (cli.input.includes('get')) {
+		if (!name) {
+			setError('When get a OTP, name are required');
+			return ;
+		}
+		const item = await find(name);
+		if (!item) {
+      setError('This name is not found');
+			return ;
+		}
+    
+    console.log(generate(item.secret).token);
+		return ;
+	}
+
 	if (cli.input.includes('import')) {
 		if (!url) {
 			setError('When import 2fa, url is required');
-			return process.exit(1);
+			return ;
 		}
 
 		const gaData = await decode(url);
 		await importGA(gaData);
-		return process.exit(1);
+		return ;
 	}
 
 	if (cli.input.includes('add')) {
 		if (!name || !secret) {
 			setError('When add a OTP, name and secret are required');
-			return process.exit(1);
+			return ;
 		}
 		if (await has(name)) {
 			setError('This name is already used');
-			return process.exit(1);
+			return ;
 		}
 		await add({
 			name: name,
 			secret: secret,
 		});
-		return process.exit(1);
+		return ;
 	}
 
 	if (cli.input.includes('remove')) {
 		if (!name) {
 			setError('When remove a OTP, name is required');
-			return process.exit(1);
+			return ;
 		}
 		await remove(name);
-		return process.exit(1);
+		return ;
 	}
 	if (cli.input.includes('verify')) {
 		if (!name || !token) {
 			setError('When verify a OTP, name and token are required');
-			return process.exit(1);
+			return ;
 		}
 		const item = await find(name);
 		if (!item) {
 			setError('This name is not found');
-			return process.exit(1);
+			return ;
 		}
 
 		console.log(
@@ -105,12 +122,12 @@ const setError = (msg: string) => {
 				? chalk.green('Valid token')
 				: chalk.red('Invalid token'),
 		);
-		return process.exit(1);
+		return ;
 	}
 })();
 
-const {clear} = render(<App />, {
-	exitOnCtrlC: false,
-});
+// const {clear} = render(<App />, {
+// 	exitOnCtrlC: false,
+// });
 
-export {clear};
+export const clear = () => {};
